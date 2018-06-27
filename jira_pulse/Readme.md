@@ -1,1 +1,1 @@
-
+[JIRA Pulse](https://github.com/lbonanomi/monitoring_tools/tree/master/jira_pulse): Simple monitoring for a fleet of JIRA instances. Look for connectivity and confirm basic functionality and response times with REST calls. Connection timeouts and too-slow responses trigger SMS cascades through Twilio, all responses are clocked against Employer's grafana.
