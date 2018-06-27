@@ -82,5 +82,5 @@ def uptime():
                     # Count failures
                     (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
 
-                    if fail_buffer.count(1) > 2:
+                    if fail_buffer.count(1) > 4:
                             alert(env.host_string)
