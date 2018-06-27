@@ -1,9 +1,14 @@
 #!/bin/python
 
-"""Fabric fo check SSH connectivity"""
+"""Fabric to check SSH connectivity"""
+
+# Fabric task-runner to check SSH connectivity. 
+#
+# If a host fails SSH connect-checks 6 times in 30 minutes
+# fire the (placeholder) 'alert' function. WhisperDB will
+# stores value
 
 from fabric.api import *
-from fabric.contrib.console import confirm
 
 import os
 import string
@@ -14,16 +19,18 @@ import whisper
 with open('host_list.tmp') as listing:
     env.hosts = map(string.strip, listing.readlines())
 
+    
 env.parallel = True     # like '-P' for parallel exec
-env.pool_size = 2       # like '-z' for pool-sizing
-env.timeout = 6     # SSH timeout in seconds
+env.pool_size = 10      # like '-z' for pool-sizing
+env.timeout = 60        # SSH timeout in seconds
 
 
 def alert(hostname):
+    """Alerting mechanism"""
     print "Launch alerts for " + hostname + "\n"
 
 
-def uptime():
+def connect_check():
     retainer = [(1800, 6)]      # [(seconds_in_period, slots_in_period)]
 
     whisper_db_dir = '/var/tmp/whisperDB/'
@@ -52,5 +59,5 @@ def uptime():
         # Count failures
         (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
 
-        if fail_buffer.count(1) > 2:
+        if fail_buffer.count(1) > 6:
             alert(env.host_string)  
