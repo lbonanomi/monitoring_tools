@@ -1,4 +1,4 @@
-#!/bin/bbpy
+#!/bin/python
 
 """Fabric fo check SSH connectivity"""
 
