@@ -24,7 +24,7 @@ with open('host_list.tmp') as listing:
 
 env.parallel = True     # like '-P' for parallel exec
 env.pool_size = 2       # like '-z' for pool-sizing
-env.timeout = 6     # SSH timeout in seconds
+env.timeout = 6         # SSH timeout in seconds
 
 
 def alert(hostname):
