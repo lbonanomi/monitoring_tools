@@ -12,24 +12,36 @@ from email.mime.text import MIMEText
 import os
 import requests
 import smtplib
-import string
-import sys
 import whisper
 
 
 with open('/etc/hosts') as listing:
     raw = listing.readlines()
-env.hosts = [line.split()[1] for line in raw if 'continuous_build' in line and 'global_zone' not in line]   # Little white lie about the filename
+env.hosts = [line.split()[1] for line in raw if 'continuous_build' in line and 'global_zone' not in line]
+
+
+# Continue on error.
+#
+
+class FabricException(Exception):
+    pass
+
+env.abort_exception = FabricException
 
 
 env.parallel = True    # like '-P' for parallel exec
 env.pool_size = 10     # like '-z' for pool-sizing
-env.timeout = 6        # SSH timeout in seconds
-env.disable_known_hosts = False  
+env.timeout = 66       # SSH timeout in seconds
+
+env.disable_known_hosts = True  
+env.warn_only = True
+env.skip_bad_hosts = True
+
+env.password = ""    # This is funny...
 
 
-def sendmail(hostname, engineer):
-    msg = MIMEText("Cannot SSH to host " + hostname)
+def sendmail(hostname, engineer, alert_text):
+    msg = MIMEText("Cannot SSH to host " + hostname + "\n\n" + alert_text)
     msg['Subject'] = "Cannot SSH to host " + hostname
     msg['From'] = 'someone@somewhere.net'
     msg['To'] = engineer
@@ -39,7 +51,7 @@ def sendmail(hostname, engineer):
     sendmail_handle.quit()
 
 
-def alert(hostname):
+def alert(hostname, alert_text):
     # This probably won't fit your workflow, but its what my operating cadre inherited.
 
     with open('email.list') as mailing_list:
@@ -47,13 +59,15 @@ def alert(hostname):
     email = [x.split()[0] for x in emails if '@' in x]
 
     for email_address in email:
-        sendmail(hostname, email_address)
+        print "FOUND " + email_address
 
-@task
+        sendmail(hostname, email_address, alert_text)
+
+@task(alias='ssh_check')
 def uptime():
     """SSH to host, record SSH connectivity in whisperDB"""
 
-    retainer = [(1800, 6)]      # [(seconds_in_period, slots_in_period)]
+    retainer = [(300, 6)]      # [(seconds_in_period, slots_in_period)]
 
     whisper_db_dir = '/var/tmp/whisperDB/'
 
@@ -63,21 +77,37 @@ def uptime():
         os.mkdir(whisper_db_dir)
 
     if not os.path.exists(whisper_db_name):
-        whisper.create(whisper_db_name, retainer)
+        whisper.create(whisper_db_name, retainer, aggregationMethod='last')
 
-        try:
-            with hide('stdout', 'stderr', 'running'):
+    try:
+        with hide('stdout', 'stderr', 'running'):
+            try:
                 connector = run('uptime')
 
-            whisper.update(whisper_db_name, 0)
+            except FabricException as e:                # Catch Fabric errors, like unexpected password prompts
+                whisper.update(whisper_db_name, 1)
 
-            (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
+                (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
+                if fail_buffer.count(1) > 1:
+                    alert(env.host_string, str(e))
 
-        except NetworkError as e:
-            whisper.update(whisper_db_name, 1)
 
-            # Count failures
-            (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
+        ## If this connection was successful AND we are down to a single '1' result, sound an all-clear.
 
-            if fail_buffer.count(1) > 4:
-                alert(env.host_string)
+        (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
+
+        if fail_buffer.count(1) == 1 and fail_buffer[0] == 1:
+            alert(env.host_string, "All clear on " + str(e))
+
+        whisper.update(whisper_db_name, 0)
+
+        (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
+
+    except Exception as e:
+        whisper.update(whisper_db_name, 1)
+
+        (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
+
+        if fail_buffer.count(1) > 1:
+            alert(env.host_string, str(e))
+
