@@ -43,11 +43,11 @@ env.password = ""    # This is funny...
 def sendmail(hostname, engineer, alert_text):
     msg = MIMEText("Cannot SSH to host " + hostname + "\n\n" + alert_text)
     msg['Subject'] = "Cannot SSH to host " + hostname
-    msg['From'] = 'lbonanomi2@bloomberg.net'
+    msg['From'] = 'someone@somewhere.net'
     msg['To'] = engineer
 
     sendmail_handle = smtplib.SMTP('localhost')
-    sendmail_handle.sendmail('lbonanomi2@bloomberg.net', engineer, msg.as_string())
+    sendmail_handle.sendmail('someone@somewhere.net', engineer, msg.as_string())
     sendmail_handle.quit()
 
 
