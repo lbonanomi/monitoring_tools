@@ -1,4 +1,4 @@
-#!/opt/bb/bin/python
+#!/bin/python
 
 """
 Fabric to check SSH connectivity
