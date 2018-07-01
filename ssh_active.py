@@ -1,7 +1,7 @@
-#!/opt/bb/bin/python
+#!/bin/python
 
 """
-Fabric to check SSH connectivity
+Python Fabric to check SSH connectivity
 """
 
 from fabric.api import *
@@ -18,16 +18,14 @@ with open('/etc/hosts') as listing:
 env.hosts = [line.split()[1] for line in raw if 'continuous_build' in line and 'global_zone' not in line]
 
 
-
 # Continue on error.
 #
 
 class FabricException(Exception):
     pass
 
+
 env.abort_exception = FabricException
-
-
 env.parallel = True    # like '-P' for parallel exec
 env.pool_size = 10     # like '-z' for pool-sizing
 env.timeout = 66       # SSH timeout in seconds
@@ -101,20 +99,19 @@ def uptime():
                     alert(env.host_string, str(e))
 
 
-                    # Triple WhisperDB period to reduce alarm repetition
+                    # This is a confirmed hard-outage now,
+                    #
+                    # We have fired an initial alert, now 
+                    # triple WhisperDB period to reduce alarm repetition
                     #
 
                     new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
 
                     new_retainer = [(retainer[0][0] * 3, 6)]
 
-                    print "Instancing temp whisperDB " + new_whisper_db_name + " with retention policy " + str(new_retainer)
-
                     whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
 
                     whisper.update(new_whisper_db_name, 1)
-
-                    print "Swapping " + new_whisper_db_name + " over " + whisper_db_name
 
                     os.rename(new_whisper_db_name, whisper_db_name)
 
