@@ -87,6 +87,10 @@ def uptime():
                 if fail_buffer.count(1) == 1 and fail_buffer[0] == 1:
                     alert(env.host_string, "All clear on " + str(e))
 
+                    os.unlink(whisper_db_name)
+                    whisper.create(whisper_db_name, retainer, aggregationMethod='last')
+
+
                 whisper.update(whisper_db_name, 0)
                 (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
 
