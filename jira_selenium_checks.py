@@ -1,68 +1,54 @@
 #!/bin/python
 
-import os
-import sys
-
-from selenese import chrome_driver, login, scrape_dash, search, check_dir_sync
-
-
-username = ""    #Fill these in.
-password = ""
+"""
+Fabric to check Jira Health
+"""
 
 
-url = sys.argv[1]
-login_page = url + "/login.jsp"
-dashboard_page = url + "/secure/Dashboard.jspa"
+from fabric.api import *
+from fabric.exceptions import NetworkError
+from selenese import *
 
 
-try:
-    (driver, driver_status) = chrome_driver()
-
-except Exception as e:
-    print str(e)
-    sys.exit(9)
-
-
-try:
-    url = sys.argv[1]
-except Exception:
-    print sys.argv[0] + " URL"
-    sys.exit(2)
-
-
-if login(driver, login_page, username, password) == 0:
-    print "Driver instanced"
-else:
-    print "Could not instance driver"
-    sys.exit(2)
-
-
-# Log-in, look for a common dashboard widget
-#
-
-if scrape_dash(driver, dashboard_page) == 0:
-    print "Scraped dashboard, login seems okay!"
-else:
-    print "Could not get " + username + "'s dashboard, cannot continue"
-    sys.exit(1)
-
-
-# Check state of user directories
-#
-
-if check_dir_sync(driver, url, password) == 0:
-    print "Synced-up"
-else:
-    print "Directory Sync has failed"
+url = ''
+username = ''
+password = ''
 
 
 #
-#
+dashboard_url = url + "/secure/Dashboard.jspa"
+login_url = url + "/login.jsp"
 
-#create_issue()
+
+@task
+def dashboard():
+    (driver, status) = chrome_driver()
+
+    if login(driver, login_url, username, password) == 0:
+        print "Logged-in to " + url
+
+        scrape_dash(driver, dashboard_url)
 
 
-#print "Searching..."
-#search('RDSISRE')
+@task
+def directory_sync():
+    (driver, status) = chrome_driver()
 
-driver.quit()
+    if login(driver, login_url, username, password) == 0:
+        print "Logged-in to " + url
+
+        if check_dir_sync(driver, url, password) == 0:
+            print "User directory sync up-to-date"
+        else:
+            print "User directory sync behind"
+
+
+@task
+def issue():
+    (driver, status) = chrome_driver()
+
+    if login(driver, login_url, username, password) == 0:
+        print "Logged-in to " + url
+
+        if create_issue(driver, url) == 0:
+            print "Top-Level"
