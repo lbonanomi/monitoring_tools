@@ -6,7 +6,7 @@ import sys
 import re
 import time
 
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -45,9 +45,9 @@ def chrome_driver():
         raise ValueError('Failed to Instance')
         return(str(e), 1)
 
+
 def login(driver, url, username, password):
     """Login to Jira with the vendor's web form"""
-
 
     try:
         driver.get(url)
@@ -88,7 +88,6 @@ def login(driver, url, username, password):
 def scrape_dash(driver, url):
     """Find the user's activity stream panel. Note: making some wild assumptions, here."""
 
-
     try:
         driver.get(url)
     except Exception as e:
@@ -107,7 +106,6 @@ def scrape_dash(driver, url):
 
 def check_dir_sync(driver, url, password):
     """Check LDAP directory's sync state"""
-
 
     dire = url + '/secure/admin/user/UserBrowser.jspa'
 
@@ -132,28 +130,29 @@ def check_dir_sync(driver, url, password):
     for piglet in driver.find_element_by_id("directory-list").find_elements_by_tag_name("td"):
 
         if 'synchronised' in piglet.text:
-            piglet_text_arr = piglet.text.split()
+            status = piglet.text.split().pop()
 
-            for piggy in piglet_text_arr:
-                if ':' in piggy or '/' in piggy:    # WHY IS THIS!?
-                    if '/' in piggy:
+            simple_stamp = piglet.text.split()[5:8]
 
-                        print "This is a date."
-                        pigdays = piggy.split('/')
-                        pigdatestamp = date(int(pigdays[0]), int(pigdays[1]), int(pigdays[2]))
+            datetime_object = datetime.strptime(' '.join(simple_stamp), '%m/%d/%y %I:%M %p')
+            now = int(datetime.now().strftime('%s'))
+            then = int(datetime_object.strftime('%s'))
 
-                        print pigdatestamp
+            standoff = now - then
+            #print "SYNCED " + str(standoff) + " seconds-ago"
+            #print piglet.text
 
-                    print "PIGGY: " + piggy
-                    if ':' in piggy:
-                        print "This is a time"
-
-
-            if piglet_text_arr.pop() == "successfully.":
+            if piglet.text.split().pop() == "successfully.":
                 print "Directory sync good."
-                return(0)
+
+                if standoff < 3660:
+                    print "Within-the-hour"
+                    return(0)
+                else:
+                    print "Directory arrears"
+                    return(0)
             else:
-                print "Directory sync failed"
+                #print "Directory sync failed"
                 return(1)
 
 
@@ -178,7 +177,7 @@ def search(driver, key):
         print issues[0]
 
 
-def create_issue(driver):
+def create_issue(driver, url):
     create_url = url + '/secure/CreateIssue!default.jspa'
     driver.get(create_url)
 
@@ -203,4 +202,3 @@ def create_issue(driver):
     polaroid = driver.get_screenshot_as_png()
     with open("/var/tmp/polaroid3.png", 'w') as screencap:
         screencap.write(polaroid)
-
