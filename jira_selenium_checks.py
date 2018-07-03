@@ -10,45 +10,78 @@ from fabric.exceptions import NetworkError
 from selenese import *
 
 
-url = ''
+print env.host_string
+
 username = ''
 password = ''
 
 
-#
-dashboard_url = url + "/secure/Dashboard.jspa"
-login_url = url + "/login.jsp"
-
-
 @task
 def dashboard():
+    url = 'https://' + env.host_string
+    
+    login_url = 'https://' + env.host_string + "/login.jsp"
+    dashboard_url = 'https://' + env.host_string + "/secure/Dashboard.jspa"
+
     (driver, status) = chrome_driver()
 
-    if login(driver, login_url, username, password) == 0:
-        print "Logged-in to " + url
-
+    try:
+        login(driver, login_url, username, password)
         scrape_dash(driver, dashboard_url)
+
+    except ValueError as e:
+        if str(e) == 'No username field found':
+            print "Could not find login page for https://" + env.host_string
 
 
 @task
 def directory_sync():
+    url = 'https://' + env.host_string
+
+    login_url = 'https://' + env.host_string + "/login.jsp"
+    dashboard_url = 'https://' + env.host_string + "/secure/Dashboard.jspa"
+
     (driver, status) = chrome_driver()
 
-    if login(driver, login_url, username, password) == 0:
-        print "Logged-in to " + url
+    try:
+        login(driver, login_url, username, password)
+        check_dir_sync(driver, url, username, password)
+        print "User directory sync up-to-date"
 
-        if check_dir_sync(driver, url, password) == 0:
-            print "User directory sync up-to-date"
-        else:
-            print "User directory sync behind"
+    except ValueError as e:
+        print "E: " + str(e)
 
 
 @task
 def issue():
+    url = 'https://' + env.host_string
+
+    login_url = 'https://' + env.host_string + "/login.jsp"
+
+    project = 'FEED_ME_A_PROJECT_KEY!!'
+
     (driver, status) = chrome_driver()
 
-    if login(driver, login_url, username, password) == 0:
-        print "Logged-in to " + url
+    try:
+        login(driver, login_url, username, password)
+        create_issue(driver, url, project)
 
-        if create_issue(driver, url) == 0:
-            print "Top-Level"
+    except ValueError as e:
+        print "E: " + str(e)
+
+@task
+def issuesearch():
+    url = 'https://' + env.host_string
+
+    login_url = 'https://' + env.host_string + "/login.jsp"
+
+    project = 'FEED_ME_A_PROJECT_KEY!!'
+
+    (driver, status) = chrome_driver()
+
+    try:
+        login(driver, login_url, username, password)
+        search(driver, url, username, project)
+
+    except ValueError as e:
+        print "E: " + str(e)
