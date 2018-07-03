@@ -7,7 +7,7 @@ Fabric to check Jira Health
 
 from fabric.api import *
 from fabric.exceptions import NetworkError
-from selenese import *
+from jira_selenium_functions import *
 
 
 print env.host_string
