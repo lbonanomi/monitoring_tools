@@ -1,144 +1,234 @@
 #!/bin/python
 
-"""
-Python Fabric to check SSH connectivity
-"""
-
-from fabric.api import *
-from fabric.exceptions import NetworkError
-from email.mime.text import MIMEText
-
 import os
-import smtplib
-import whisper
+import sys
+
+import requests
+import time
+
+from datetime import datetime, date, timedelta
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import Select
+
+import selenium.common.exceptions
 
 
-with open('/etc/hosts') as listing:
-    raw = listing.readlines()
-env.hosts = [line.split()[1] for line in raw if 'continuous_build' in line and 'global_zone' not in line]
+def chrome_driver():
+    """Instance Selenium headless Chrome session"""
+
+    chrome_options = Options()
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-proxy-server")
 
 
-# Continue on error.
-#
-
-class FabricException(Exception):
-    pass
-
-
-env.abort_exception = FabricException
-env.parallel = True    # like '-P' for parallel exec
-env.pool_size = 10     # like '-z' for pool-sizing
-env.timeout = 66       # SSH timeout in seconds
-env.disable_known_hosts = True  
-env.warn_only = True
-env.skip_bad_hosts = True
-env.password = ""
+    if os.path.isfile('/bin/google-chrome'):
+        chrome_options.binary_location = '/bin/google-chrome'
+    else:
+        raise ValueError('No Chrome Browser Binary')
 
 
-def sendmail(hostname, engineer, alert_text):
-    msg = MIMEText("Cannot SSH to host " + hostname + "\n\n" + alert_text)
-    msg['Subject'] = "Cannot SSH to host " + hostname
-    msg['From'] = 'someone@somewhere.net'
-    msg['To'] = engineer
-
-    sendmail_handle = smtplib.SMTP('localhost')
-    sendmail_handle.sendmail('someone@somewhere.net', engineer, msg.as_string())
-    sendmail_handle.quit()
-
-
-def alert(hostname, alert_text):
-    # This probably won't fit your workflow, but its what my operating cadre inherited.
-
-    with open('email.list') as mailing_list:
-        emails = mailing_list.readlines()
-
-    email = [x.split()[0] for x in emails if '@' in x]
-
-    for email_address in email:
-        sendmail(hostname, email_address, alert_text)
-
-
-@task(alias='ssh_check')
-def uptime():
-    """SSH to host, record SSH connectivity in whisperDB"""
-
-    retainer = [(300, 6)]      # [(seconds_in_period, slots_in_period)]
-
-    whisper_db_dir = '/var/tmp/whisperDB/'
-
-    whisper_db_name = whisper_db_dir + env.host_string + '.wsp'
-
-    if not os.path.isdir(whisper_db_dir):
-        os.mkdir(whisper_db_dir)
-
-    if not os.path.exists(whisper_db_name):
-        whisper.create(whisper_db_name, retainer, aggregationMethod='last')
+    if os.path.isfile('/usr/local/bin/chromedriver'):
+        chromedriver = "/usr/local/bin/chromedriver"
+    else:
+        raise ValueError('No Chromedriver Binary')
 
 
     try:
-        with hide('stdout', 'stderr', 'running'):
-            try:
-                connector = run('uptime')
-
-                ## If this connection was successful AND we are down to a single '1' result, sound an all-clear.
-
-                (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
-
-                if fail_buffer.count(1) == 1 and fail_buffer[0] == 1:
-                    alert(env.host_string, "All clear on " + str(e))
-
-                whisper.update(whisper_db_name, 0)
-                (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
-
-            except FabricException as e:                    # Catch Fabric errors, like unexpected password prompts
-                whisper.update(whisper_db_name, 1)
-
-                (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
-
-                if fail_buffer.count(1) > 5:
-                    alert(env.host_string, str(e))
-
-
-                    # This is a confirmed hard-outage now,
-                    #
-                    # We have fired an initial alert, now 
-                    # triple WhisperDB period to reduce alarm repetition
-                    #
-
-                    new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
-
-                    new_retainer = [(retainer[0][0] * 3, 6)]
-
-                    whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
-
-                    whisper.update(new_whisper_db_name, 1)
-
-                    os.rename(new_whisper_db_name, whisper_db_name)
+        driver = webdriver.Chrome(executable_path=os.path.abspath(chromedriver),   chrome_options=chrome_options)
+        return(driver, 0)
 
     except Exception as e:
-        whisper.update(whisper_db_name, 1)
-
-        # Count failures
-        (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
-
-        if fail_buffer.count(1) > 5:
-            alert(env.host_string, str(e))
+        raise ValueError('Failed to Instance')
+        return(str(e), 1)
 
 
-            # Change WhisperDB period to reduce alarm repetition
-            #
+def login(driver, url, username, password):
+    """Login to Jira with the vendor's web form"""
 
-            new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
+    try:
+        driver.get(url)
+    except Exception as e:
+        return(1)
 
-            new_retainer = [(retainer[0][0] * 3, 6)]
 
-            #print "Instancing temp whisperDB " + new_whisper_db_name + " with retention policy " + str(new_retainer)
+    try:
+        username_field = driver.find_element_by_id("login-form-username")
 
-            whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
+    except selenium.common.exceptions.NoSuchElementException:
+        polaroid = driver.get_screenshot_as_png()
+        with open("/var/tmp/latest_mess.png", 'w') as screencap:
+            screencap.write(polaroid)
 
-            whisper.update(new_whisper_db_name, 1)
+        raise ValueError('No username field found')
 
-            #print "Swapping " + new_whisper_db_name + " over " + whisper_db_name
+    username_field.clear()
+    username_field.send_keys(username)
 
-            os.rename(new_whisper_db_name, whisper_db_name)
 
+    try:
+        password_field = driver.find_element_by_id("login-form-password")
+    except Exception as e:
+        polaroid = driver.get_screenshot_as_png()
+        with open("/var/tmp/polaroid1.png", 'w') as screencap:
+            screencap.write(polaroid)
+
+        raise ValueError(str(e))
+
+    password_field.clear()
+    password_field.send_keys(password)
+
+
+    try:
+        login_button = driver.find_element_by_id("login-form-submit")
+    except Exception as e:
+        raise ValueError('No submit button found')
+
+    login_button.click()
+
+    return(0)
+
+
+def scrape_dash(driver, url):
+    """Find the user's activity stream panel. Note: making some wild assumptions, here."""
+
+    try:
+        driver.get(url)
+    except Exception as e:
+        raise ValueError("Could not get " + url)
+
+
+    activity_gadget = driver.find_element_by_id("gadget-10003")   # This may not stand...
+
+
+    polaroid = driver.get_screenshot_as_png()
+    with open("/var/tmp/dashboard.png", 'w') as screencap:
+        screencap.write(polaroid)
+
+
+    if activity_gadget.is_displayed():
+        print "I see the activity stream for user!"
+        return(0)
+    else:
+        print "No activity stream visible!"
+    return(1)
+
+
+def check_dir_sync(driver, url, username, password):
+    """Check LDAP directory's sync state"""
+
+    dire = url + '/secure/admin/user/UserBrowser.jspa'
+
+    try:
+        driver.get(dire)
+    except Exception as e:
+        raise ValueError("Could not get " + url)
+
+
+    try:
+        sudo_password_field = driver.find_element_by_id("login-form-authenticatePassword")
+
+        sudo_password_field.clear()
+        sudo_password_field.send_keys(password)
+
+        sudo_button = driver.find_element_by_id("login-form-submit")
+        sudo_button.click()
+
+    except selenium.common.exceptions.NoSuchElementException:
+        try:
+            current_session = driver.find_element_by_class_name("aui-nav-heading")
+            print "Session is current"
+
+        except Exception:
+            print "Getting a screenshot and dying."
+
+
+            polaroid = driver.get_screenshot_as_png()
+            with open("/var/tmp/no_password.png", 'w') as screencap:
+                screencap.write(polaroid)
+
+            return(1)
+            raise ValueError("No password field found " + url)
+
+
+    dire = url + '/plugins/servlet/embedded-crowd/directories/list'
+    driver.get(dire)
+
+    betterness = driver.find_element_by_id("directory-list").find_element_by_tag_name("tbody").find_elements_by_class_name("operations-column")
+
+    for hammer in betterness:
+        nail = hammer.find_elements_by_tag_name("p")
+
+        for roofing in nail:
+            if 'sync' in roofing.text or 'Sync' in roofing.text:
+
+                if ':' in roofing.text:
+                    simple_stamp = roofing.text.split()[3:6]
+                    simple_object = datetime.strptime(' '.join(simple_stamp), '%m/%d/%y %I:%M %p')
+
+                    now = int(datetime.now().strftime('%s'))
+                    then = int(simple_object.strftime('%s'))
+
+                    standoff = now - then
+
+                # Return seconds-since-last-sync, or 0 for sync issues
+
+                elif 'completed successfully' in roofing.text:
+                    return(standoff)
+
+                elif 'Synchronisation failed' in roofing.text:
+                    print 'Sync is failed. Trombones.'
+                    return(0)
+
+
+def progress_issue(driver, key):
+    print
+
+
+def search(driver, key):
+    proj_url =  url + '/projects/' + key + '/issues/?jql=project%20%3D%20_$PROJECT-NAME-HERE_AND%20creator%20%3D%20_$ADMIN-USER_%20ORDER%20BY%20created%20DESC'
+
+    driver.get(proj_url)
+
+    polaroid = driver.get_screenshot_as_png()
+    with open("/var/tmp/polaroid3.png", 'w') as screencap:
+        screencap.write(polaroid)
+
+    # Grab the first issue to be seen
+    #
+
+    for dc in driver.find_elements_by_class_name("issue-list"):
+        issues = dc.text.split()
+        print issues[0]
+
+
+def create_issue(driver, url):
+    create_url = url + '/secure/CreateIssue!default.jspa'
+    driver.get(create_url)
+
+    project_field = driver.find_element_by_id("project-field")
+    project_field.send_keys("$PROJECT")
+
+
+    type_field = driver.find_element_by_id("issuetype-field")
+    type_field.send_keys("Task\n")
+
+
+    ## WINNER
+    ##
+    project_field.send_keys(Keys.ALT, 's')
+
+    summary_field = driver.find_element_by_id("summary")
+    summary_field.send_keys("Summary Text")
+
+
+    summary_field.send_keys(Keys.ALT, 's')
+
+    polaroid = driver.get_screenshot_as_png()
+    with open("/var/tmp/polaroid3.png", 'w') as screencap:
+        screencap.write(polaroid)
