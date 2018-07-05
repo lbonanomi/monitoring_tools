@@ -13,4 +13,4 @@ System and application monitoring is like High School: subject to fads, managed 
 [Jira Pulse](jira_pulse): Simple monitoring for a fleet of JIRA instances. Look for connectivity and confirm basic functionality and response times with REST calls. Connection timeouts and too-slow responses trigger SMS cascades through Twilio, all responses are clocked against Employer's grafana in the production run. 
 
 
-[jira_selenium_checks.py](https://github.com/lbonanomi/monitoring_tools/blob/jira_selenium/jira_selenium_checks.py): Interactive Jira checks with Selenium
+[jira_selenium_monitoring](https://github.com/lbonanomi/monitoring_tools/blob/jira_selenium/jira_selenium_monitoring): Interactive Jira checks with python [Fabric](https://github.com/fabric/fabric) and [Selenium](https://github.com/SeleniumHQ/selenium). 
