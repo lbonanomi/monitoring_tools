@@ -14,10 +14,9 @@ import requests
 import smtplib
 import whisper
 
-with open('/bb/bin/bbcpu.lst') as listing:
+with open('/etc/hosts') as listing:
     raw = listing.readlines()
-
-env.hosts = [line.split()[0] for line in raw if 'bldo' in line and 'gzone' not in line]
+env.hosts = [line.split()[1] for line in raw if 'continuous_build' in line and 'global_zone' not in line]
 
 
 # Continue on error.
@@ -111,17 +110,13 @@ def uptime():
                     # Change WhisperDB period to reduce alarm repetition
                     #
 
-                    new_whisper_db_name = whisper_db_dir + 'long_' + 'wizard' + '.wsp'
+                    new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
 
                     new_retainer = [(retainer[0][0] * 3, 6)]
-
-                    print "Instancing temp whisperDB " + new_whisper_db_name + " with retention policy " + str(new_retainer)
 
                     whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
 
                     whisper.update(new_whisper_db_name, 1)
-
-                    print "Swapping " + new_whisper_db_name + " over " + whisper_db_name
 
                     os.rename(new_whisper_db_name, whisper_db_name)
 
@@ -138,7 +133,7 @@ def uptime():
             # Change WhisperDB period to reduce alarm repetition
             #
 
-            new_whisper_db_name = whisper_db_dir + 'long_' + 'wizard' + '.wsp'
+            new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
 
             new_retainer = [(retainer[0][0] * 3, 6)]
 
