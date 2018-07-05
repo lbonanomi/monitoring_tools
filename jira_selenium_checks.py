@@ -7,10 +7,8 @@ Fabric to check Jira Health
 
 from fabric.api import *
 from fabric.exceptions import NetworkError
-from jira_selenium_functions import *
+from selenese import *
 
-
-print env.host_string
 
 username = ''
 password = ''
@@ -18,8 +16,7 @@ password = ''
 
 @task
 def dashboard():
-    url = 'https://' + env.host_string
-    
+
     login_url = 'https://' + env.host_string + "/login.jsp"
     dashboard_url = 'https://' + env.host_string + "/secure/Dashboard.jspa"
 
@@ -52,13 +49,12 @@ def directory_sync():
         print "E: " + str(e)
 
 
-@task
 def issue():
     url = 'https://' + env.host_string
 
     login_url = 'https://' + env.host_string + "/login.jsp"
 
-    project = 'FEED_ME_A_PROJECT_KEY!!'
+    project = 'RDTSUGLY'
 
     (driver, status) = chrome_driver()
 
@@ -69,19 +65,52 @@ def issue():
     except ValueError as e:
         print "E: " + str(e)
 
+
 @task
-def issuesearch():
+def issue_search():
     url = 'https://' + env.host_string
 
     login_url = 'https://' + env.host_string + "/login.jsp"
 
-    project = 'FEED_ME_A_PROJECT_KEY!!'
+    project = 'RDTSUGLY'
 
     (driver, status) = chrome_driver()
 
     try:
         login(driver, login_url, username, password)
-        search(driver, url, username, project)
+        create_issue(driver, url, project)
+    except ValueError as e:
+        print "E: " + str(e)
+
+
+    try:
+        issue = search(driver, url, username, project)
+
+        print issue
+
+    except ValueError as e:
+        print "E: " + str(e)
+
+
+@task
+def issue_exerciser():
+    url = 'https://' + env.host_string
+
+    login_url = 'https://' + env.host_string + "/login.jsp"
+
+    project = 'RDTSUGLY'
+
+    (driver, status) = chrome_driver()
+
+    try:
+        login(driver, login_url, username, password)
+
+        issue = search(driver, url, username, project)
+
+        print "Moving " + issue + " around"
+
+        progress_issue(driver, url, username, issue)
+
 
     except ValueError as e:
         print "E: " + str(e)
