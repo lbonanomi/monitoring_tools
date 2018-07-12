@@ -36,7 +36,7 @@ env.disable_known_hosts = True
 env.warn_only = True
 env.skip_bad_hosts = True
 
-env.password = ""    # This is funny...
+env.password = ""    # Make interactive auth a failure condition
 
 
 def sendmail(hostname, engineer, alert_subject, alert_text):
@@ -65,7 +65,7 @@ def alert(hostname, alert_subject, alert_text):
 def uptime():
     """SSH to host, record SSH connectivity in whisperDB"""
 
-    retainer = [(300, 6)]      # [(seconds_in_period, slots_in_period)]
+    retainer = [(300, 3)]      # [(seconds_in_period, slots_in_period)]
 
     whisper_db_dir = '/var/tmp/whisperDB/'
 
@@ -88,8 +88,6 @@ def uptime():
 
                 if fail_buffer.count(1) == 1 and fail_buffer[0] == 1 and times[2] == 900:
 
-                    print "SOUNDING AN ALL-CLEAR AND RECREATING 300s WHISPERDB!"
-
                     alert(env.host_string, "All clear on " + env.host_string, "All clear on " + env.host_string)
 
                     os.unlink(whisper_db_name)
@@ -103,7 +101,7 @@ def uptime():
 
                 (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
 
-                if fail_buffer.count(1) > 5:
+                if fail_buffer.count(1) > 2:
                     alert(env.host_string, "Cannot SSH-To " + env.host_string, str(e))
 
 
@@ -112,7 +110,7 @@ def uptime():
 
                     new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
 
-                    new_retainer = [(retainer[0][0] * 3, 6)]
+                    new_retainer = [(retainer[0][0] * 3, 3)]
 
                     whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
 
@@ -126,7 +124,7 @@ def uptime():
         # Count failures
         (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
 
-        if fail_buffer.count(1) > 5:
+        if fail_buffer.count(1) > 3:
             alert(env.host_string, "Cannot SSH-To " + env.host_string, str(e))
 
 
@@ -135,7 +133,7 @@ def uptime():
 
             new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
 
-            new_retainer = [(retainer[0][0] * 3, 6)]
+            new_retainer = [(retainer[0][0] * 3, 3)]
 
             whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
 
