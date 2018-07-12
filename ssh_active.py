@@ -124,7 +124,7 @@ def uptime():
         # Count failures
         (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
 
-        if fail_buffer.count(1) > 3:
+        if fail_buffer.count(1) > 2:
             alert(env.host_string, "Cannot SSH-To " + env.host_string, str(e))
 
 
