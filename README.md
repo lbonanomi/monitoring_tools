@@ -9,7 +9,7 @@ System and application monitoring is like High School: subject to fads, managed 
 
 [ssh_active.py](ssh_active.py): A python [Fabric](http://www.fabfile.org) file for parsing a host list and checking SSH connectivity. To cut noise hosts are not considered "down" until they have failed to connect 3 times. "Down" hosts will generate follow-up alerts 2/3rds less frequently to try and reduce alarm apathy. Check-state is maintained in a [whisper](https://github.com/graphite-project/whisper) database.  
    
-**Please Note:** This script is modelled on a 5 minute cron cycle.
+**Please Note:** This script is modelled on a 5 minute cron cycle and it **really** needs a passwordless auth mechanism.
 
 
 [Jira Pulse](jira_pulse): Simple monitoring for a fleet of JIRA instances. Look for connectivity and confirm basic functionality and response times with REST calls. Connection timeouts and too-slow responses trigger SMS cascades through Twilio, all responses are clocked against Employer's grafana in the production run. 
