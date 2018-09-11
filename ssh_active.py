@@ -2,6 +2,8 @@
 
 """
 Fabric to check SSH connectivity
+
+PLEASE have an SSH key or other passwordless auth for the driving account.
 """
 
 from fabric.api import *
