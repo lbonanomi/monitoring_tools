@@ -15,4 +15,4 @@ System and application monitoring is like High School: subject to fads, managed 
 [Jira Pulse](jira_pulse): Simple monitoring for a fleet of JIRA instances. Look for connectivity and confirm basic functionality and response times with REST calls. Connection timeouts and too-slow responses trigger SMS cascades through Twilio, all responses are clocked against Employer's grafana in the production run. 
 
 
-[Jira Selenium Checks(jira-selenium): Demonstration of Selenium and Google Chromium to test the health of a Jira instance. This is predicated on [Fabric](http://www.fabfile.org) ***Version 1***
+[Jira Selenium Checks](jira-selenium): Demonstration of Selenium and Google Chromium to test the health of a Jira instance. This is predicated on [Fabric](http://www.fabfile.org) ***Version 1***
