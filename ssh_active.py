@@ -4,8 +4,11 @@
 import os
 import paramiko
 import whisper
+import sys
 
 RETAINER = [(300, 3)]                       # [(seconds_in_period, slots_in_period)]
+FOLLOWUP_RETAINER = [(900, 3)]
+
 whisper_db_dir = '/var/tmp/whisperDB/'
 
 def waterlevel(db_name):
@@ -16,16 +19,15 @@ def waterlevel(db_name):
         # Initial alert
         print("W00p W00p!!")
 
-        # Roll DB-over to alert 1/3 speed
+        # Roll DB-over to 'FOLLOWUP_RETAINER'
         new_whisper_db_name = db_name + '.wsp2'
-        new_retainer = [(RETAINER[0][0] * 3, RETAINER[0][1])]
+        new_retainer = FOLLOWUP_RETAINER
         whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
         whisper.update(new_whisper_db_name, 1)
 
         os.rename(new_whisper_db_name, db_name)
 
     if fail_buffer.count(1) == 0:
-        print("Sound all-clear")
         new_whisper_db_name = db_name + '.wsp2'
         whisper.create(new_whisper_db_name, RETAINER, aggregationMethod='last')
         whisper.update(new_whisper_db_name, 0)
@@ -55,4 +57,4 @@ def pinger(hostname):
 
             waterlevel(whisper_db_name)
 
-pinger('bldibm-ob-189')
+pinger(sys.argv[1])
