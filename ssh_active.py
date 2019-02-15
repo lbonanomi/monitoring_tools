@@ -1,144 +1,58 @@
-#!/bin/python
-
-"""
-Fabric to check SSH connectivity
-
-PLEASE have an SSH key or other passwordless auth for the driving account.
-"""
-
-from fabric.api import *
-from fabric.exceptions import NetworkError
-from email.mime.text import MIMEText
-
+#!/opt/bb/bin/python3.6
+"""SSH monitor with alert throttling"""
 
 import os
-import requests
-import smtplib
+import paramiko
 import whisper
 
-with open('/etc/hosts') as listing:
-    raw = listing.readlines()
-env.hosts = [line.split()[1] for line in raw if 'continuous_build' in line and 'global_zone' not in line]
+RETAINER = [(300, 3)]                       # [(seconds_in_period, slots_in_period)]
+whisper_db_dir = '/var/tmp/whisperDB/'
 
+def waterlevel(db_name):
+    """Reduce alert frequency after initial alert, reset on all-clear"""
+    (times, fail_buffer) = whisper.fetch(db_name, 315550800)
 
-# Continue on error.
-#
+    if fail_buffer.count(1) > 2:
+        # Initial alert
+        print("W00p W00p!!")
 
-class FabricException(Exception):
-    pass
+        # Roll DB-over to alert 1/3 speed
+        new_whisper_db_name = db_name + '.wsp2'
+        new_retainer = [(RETAINER[0][0] * 3, RETAINER[0][1])]
+        whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
+        whisper.update(new_whisper_db_name, 1)
 
-env.abort_exception = FabricException
+        os.rename(new_whisper_db_name, db_name)
 
+    if fail_buffer.count(1) == 0:
+        print("Sound all-clear")
+        new_whisper_db_name = db_name + '.wsp2'
+        whisper.create(new_whisper_db_name, RETAINER, aggregationMethod='last')
+        whisper.update(new_whisper_db_name, 0)
 
-env.parallel = True    # like '-P' for parallel exec
-env.pool_size = 10     # like '-z' for pool-sizing
-env.timeout = 66       # SSH timeout in seconds
+def pinger(hostname):
+    """Get host ssh-connectivity, record in whisperDB"""
 
-env.disable_known_hosts = True
-env.warn_only = True
-env.skip_bad_hosts = True
-
-env.password = ""    # Make interactive auth a failure condition
-
-
-def sendmail(hostname, engineer, alert_subject, alert_text):
-    msg = MIMEText(alert_text)
-    msg['Subject'] = alert_subject
-    msg['From'] = 'someone@somewhere.net'
-    msg['To'] = engineer
-
-    sendmail_handle = smtplib.SMTP('localhost')
-    sendmail_handle.sendmail('someone@somewhere.net', engineer, msg.as_string())
-    sendmail_handle.quit()
-
-
-def alert(hostname, alert_subject, alert_text):
-    # This probably won't fit your workflow, but its what my operating cadre inherited.
-
-    with open('email.list') as mailing_list:
-        emails = mailing_list.readlines()
-    email = [x.split()[0] for x in emails if '@' in x]
-
-    for email_address in email:
-        sendmail(hostname, email_address, alert_subject, alert_text)
-
-
-@task(alias='ssh_check')
-def uptime():
-    """SSH to host, record SSH connectivity in whisperDB"""
-
-    retainer = [(300, 3)]      # [(seconds_in_period, slots_in_period)]
-
-    whisper_db_dir = '/var/tmp/whisperDB/'
-
-    whisper_db_name = whisper_db_dir + env.host_string + '.wsp'
-
-    if not os.path.isdir(whisper_db_dir):
-        os.mkdir(whisper_db_dir)
+    whisper_db_name = whisper_db_dir + hostname + '.wsp'
 
     if not os.path.exists(whisper_db_name):
-        whisper.create(whisper_db_name, retainer, aggregationMethod='last')
+        whisper.create(whisper_db_name, RETAINER, aggregationMethod='last')
 
+    client = paramiko.SSHClient()
+    client.load_system_host_keys()
+
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     try:
-        with hide('stdout', 'stderr', 'running'):
-            try:
-                connector = run('uptime')
+        client.connect(hostname, timeout=10)
+        whisper.update(whisper_db_name, 0)
 
-                ## If this connection was successful AND we are down to a single '1' result, sound an all-clear.
-                (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
-
-                if fail_buffer.count(1) == 1 and fail_buffer[0] == 1 and times[2] == 900:
-
-                    alert(env.host_string, "All clear on " + env.host_string, "All clear on " + env.host_string)
-
-                    os.unlink(whisper_db_name)
-                    whisper.create(whisper_db_name, retainer, aggregationMethod='last')
-
-                whisper.update(whisper_db_name, 0)
-                (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
-
-            except FabricException as e:                # Catch Fabric errors, like unexpected password prompts
-                whisper.update(whisper_db_name, 1)
-
-                (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
-
-                if fail_buffer.count(1) > 2:
-                    alert(env.host_string, "Cannot SSH-To " + env.host_string, str(e))
-
-
-                    # Change WhisperDB period to reduce alarm repetition
-                    #
-
-                    new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
-
-                    new_retainer = [(retainer[0][0] * 3, 3)]
-
-                    whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
-
-                    whisper.update(new_whisper_db_name, 1)
-
-                    os.rename(new_whisper_db_name, whisper_db_name)
+        waterlevel(whisper_db_name)
 
     except Exception as e:
-        whisper.update(whisper_db_name, 1)
+        if str(e) == "timed out":
+            whisper.update(whisper_db_name, 1)
 
-        # Count failures
-        (times, fail_buffer) = whisper.fetch(whisper_db_name, 315550800)
+            waterlevel(whisper_db_name)
 
-        if fail_buffer.count(1) > 2:
-            alert(env.host_string, "Cannot SSH-To " + env.host_string, str(e))
-
-
-            # Change WhisperDB period to reduce alarm repetition
-            #
-
-            new_whisper_db_name = whisper_db_dir + 'long_' + env.host_string + '.wsp'
-
-            new_retainer = [(retainer[0][0] * 3, 3)]
-
-            whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
-
-            whisper.update(new_whisper_db_name, 1)
-
-            os.rename(new_whisper_db_name, whisper_db_name)
+pinger('bldibm-ob-189')
