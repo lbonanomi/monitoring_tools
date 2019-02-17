@@ -1,4 +1,4 @@
-#!/opt/bb/bin/python3.6
+#!/bin/python3.6
 """SSH monitor with alert throttling"""
 
 import os
@@ -16,21 +16,18 @@ def waterlevel(db_name):
     (times, fail_buffer) = whisper.fetch(db_name, 315550800)
 
     if fail_buffer.count(1) > 2:
-        # Initial alert
-        print("W00p W00p!!")
-
         # Roll DB-over to 'FOLLOWUP_RETAINER'
         new_whisper_db_name = db_name + '.wsp2'
-        new_retainer = FOLLOWUP_RETAINER
-        whisper.create(new_whisper_db_name, new_retainer, aggregationMethod='last')
+        whisper.create(new_whisper_db_name, FOLLOWUP_RETAINER, aggregationMethod='last')
         whisper.update(new_whisper_db_name, 1)
-
         os.rename(new_whisper_db_name, db_name)
+        return(1)
 
     if fail_buffer.count(1) == 0:
         new_whisper_db_name = db_name + '.wsp2'
         whisper.create(new_whisper_db_name, RETAINER, aggregationMethod='last')
         whisper.update(new_whisper_db_name, 0)
+        return(0)
 
 def pinger(hostname):
     """Get host ssh-connectivity, record in whisperDB"""
@@ -55,6 +52,6 @@ def pinger(hostname):
         if str(e) == "timed out":
             whisper.update(whisper_db_name, 1)
 
-            waterlevel(whisper_db_name)
+            sys.exit(waterlevel(whisper_db_name))
 
 pinger(sys.argv[1])
