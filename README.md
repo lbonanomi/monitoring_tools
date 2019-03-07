@@ -4,9 +4,6 @@
 > -Jimi Hendrix  
 
 
-System and application monitoring is like High School: subject to fads, managed by cliques and generally forgotten-about as soon as it is completed. Also like High School, your faithful author is not sitting at the popular clique's lunch table and does not get much attention. So while Employer searches for a magic bullet, here are a few sanity preserving monitor scripts runnable by SysOps with minimal privileges.
-
-
 [ssh_active.py](ssh_active.py): A tool for checking SSH connectivity. To cut noise hosts are not considered "down" until they have failed to connect 3 times. "Down" hosts will generate follow-up alerts 2/3rds less frequently to try and reduce alarm apathy. Check-state is maintained in a [whisper](https://github.com/graphite-project/whisper) database.  
 
 *Script pivoted to accept hostname as argument*.  
