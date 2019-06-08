@@ -3,6 +3,12 @@
 > All along the watchtower...  
 > -Jimi Hendrix  
 
+[tinear.py](tinear.py): A threshold manager for alert emails. Run
+
+```
+check.sh && tinear.ok "check.sh is recovered" admin@example.com || tinear.nok "check.sh failed" admin@example.com
+```
+
 
 [ssh_active.py](ssh_active.py): A tool for checking SSH connectivity. To cut noise hosts are not considered "down" until they have failed to connect 3 times. "Down" hosts will generate follow-up alerts 2/3rds less frequently to try and reduce alarm apathy. Check-state is maintained in a [whisper](https://github.com/graphite-project/whisper) database.  
 
