@@ -3,6 +3,8 @@
 > All along the watchtower...  
 > -Jimi Hendrix  
 
+[tinear.py](tinear.py): A threshold manager for alert emails that throttles external script email alerts. Discussed in a [dev.to article](https://dev.to/lbonanomi/tin-ear-reducing-alert-email-noise-with-python-nbh)
+
 
 [ssh_active.py](ssh_active.py): A tool for checking SSH connectivity. To cut noise hosts are not considered "down" until they have failed to connect 3 times. "Down" hosts will generate follow-up alerts 2/3rds less frequently to try and reduce alarm apathy. Check-state is maintained in a [whisper](https://github.com/graphite-project/whisper) database.  
 
