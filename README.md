@@ -14,3 +14,6 @@
 
 
 [Jira Selenium Checks](jira-selenium): Demonstration of Selenium and Google Chromium to test the health of a Jira instance. This is predicated on [Fabric](http://www.fabfile.org) ***Version 1***
+
+<!-- Yep, i'm collecting your IP address. -->
+<img src="https://evening-spire-71333.herokuapp.com/">
